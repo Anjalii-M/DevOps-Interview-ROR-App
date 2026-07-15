@@ -1,0 +1,166 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: >
+  Creates a PostgreSQL 13.3 RDS instance
+  in private subnets for the Rails application.
+
+############################################################
+# PARAMETERS
+############################################################
+
+Parameters:
+
+  EnvironmentName:
+    Type: String
+    Default: dev
+
+  ProjectName:
+    Type: String
+    Default: DevOps-Interview-ROR-App
+
+  DBName:
+    Type: String
+    Default: rordb
+
+  DBUsername:
+    Type: String
+    Default: postgres
+
+  DBPassword:
+    Type: String
+    NoEcho: true
+
+  DBAllocatedStorage:
+    Type: Number
+    Default: 20
+
+  DBInstanceClass:
+    Type: String
+    Default: db.t3.micro
+
+  PrivateSubnetA:
+
+    Type: AWS::EC2::Subnet::Id
+
+  PrivateSubnetB:
+
+    Type: AWS::EC2::Subnet::Id
+
+  RDSSecurityGroup:
+
+    Type: AWS::EC2::SecurityGroup::Id
+
+############################################################
+# RESOURCES
+############################################################
+
+Resources:
+
+############################################################
+# DB SUBNET GROUP
+############################################################
+
+  DBSubnetGroup:
+
+    Type: AWS::RDS::DBSubnetGroup
+
+    Properties:
+
+      DBSubnetGroupDescription: Private Subnets for PostgreSQL
+
+      SubnetIds:
+
+        - !Ref PrivateSubnetA
+
+        - !Ref PrivateSubnetB
+
+      Tags:
+
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-db-subnet-group"
+
+        - Key: Project
+          Value: !Ref ProjectName
+
+############################################################
+# POSTGRESQL DATABASE
+############################################################
+
+  PostgreSQLDB:
+
+    Type: AWS::RDS::DBInstance
+
+    Properties:
+
+      Engine: postgres
+
+      EngineVersion: "13.3"
+
+      DBInstanceClass: !Ref DBInstanceClass
+
+      AllocatedStorage: !Ref DBAllocatedStorage
+
+      StorageType: gp2
+
+      PubliclyAccessible: false
+
+      MultiAZ: false
+
+      DBName: !Ref DBName
+
+      MasterUsername: !Ref DBUsername
+
+      MasterUserPassword: !Ref DBPassword
+
+      DBSubnetGroupName: !Ref DBSubnetGroup
+
+      VPCSecurityGroups:
+
+        - !Ref RDSSecurityGroup
+
+      BackupRetentionPeriod: 7
+
+      DeletionProtection: false
+
+      StorageEncrypted: true
+
+      Tags:
+
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-postgres"
+
+        - Key: Project
+          Value: !Ref ProjectName
+
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+############################################################
+# OUTPUTS
+############################################################
+
+Outputs:
+
+  DBEndpoint:
+
+    Description: PostgreSQL Endpoint
+
+    Value: !GetAtt PostgreSQLDB.Endpoint.Address
+
+  DBPort:
+
+    Description: PostgreSQL Port
+
+    Value: !GetAtt PostgreSQLDB.Endpoint.Port
+
+  DBName:
+
+    Description: Database Name
+
+    Value: !Ref DBName
+
+  DBInstanceIdentifier:
+
+    Description: RDS Instance Identifier
+
+    Value: !Ref PostgreSQLDB
