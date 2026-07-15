@@ -4,7 +4,7 @@ set -e
 echo "bundle installation"
 bundle check || bundle install
 
-echo "database migartion"
+echo "database migration"
 bundle exec rails db:create
 bundle exec rails db:schema:load
 bundle exec rails db:migrate
