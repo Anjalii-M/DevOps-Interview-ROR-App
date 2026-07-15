@@ -20,7 +20,7 @@ Parameters:
 
   DBName:
     Type: String
-    Default: rordb
+    Default: mallowdb
 
   DBUsername:
     Type: String
@@ -118,7 +118,7 @@ Resources:
 
         - !Ref RDSSecurityGroup
 
-      BackupRetentionPeriod: 2
+      BackupRetentionPeriod: 0
 
       DeletionProtection: false
 
