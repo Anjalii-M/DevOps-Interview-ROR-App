@@ -32,7 +32,7 @@ Parameters:
 
   DBAllocatedStorage:
     Type: Number
-    Default: 20
+    Default: 15
 
   DBInstanceClass:
     Type: String
@@ -118,7 +118,7 @@ Resources:
 
         - !Ref RDSSecurityGroup
 
-      BackupRetentionPeriod: 7
+      BackupRetentionPeriod: 2
 
       DeletionProtection: false
 
