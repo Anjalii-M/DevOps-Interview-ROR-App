@@ -1,0 +1,91 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: >
+  Creates a secure Amazon S3 bucket for the Rails application.
+
+############################################################
+# PARAMETERS
+############################################################
+
+Parameters:
+
+  EnvironmentName:
+    Type: String
+    Default: dev
+
+  ProjectName:
+    Type: String
+    Default: DevOps-Interview-ROR-App
+
+  BucketName:
+    Type: String
+    Description: Globally unique S3 bucket name
+
+############################################################
+# RESOURCES
+############################################################
+
+Resources:
+
+############################################################
+# S3 BUCKET
+############################################################
+
+  ApplicationBucket:
+
+    Type: AWS::S3::Bucket
+
+    Properties:
+
+      BucketName: !Ref BucketName
+
+      VersioningConfiguration:
+
+        Status: Enabled
+
+      BucketEncryption:
+
+        ServerSideEncryptionConfiguration:
+
+          - ServerSideEncryptionByDefault:
+
+              SSEAlgorithm: AES256
+
+      PublicAccessBlockConfiguration:
+
+        BlockPublicAcls: true
+
+        IgnorePublicAcls: true
+
+        BlockPublicPolicy: true
+
+        RestrictPublicBuckets: true
+
+      Tags:
+
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-application-bucket"
+
+        - Key: Project
+          Value: !Ref ProjectName
+
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+############################################################
+# OUTPUTS
+############################################################
+
+Outputs:
+
+  BucketName:
+
+    Description: Application S3 Bucket
+
+    Value: !Ref ApplicationBucket
+
+  BucketArn:
+
+    Description: S3 Bucket ARN
+
+    Value: !GetAtt ApplicationBucket.Arn
