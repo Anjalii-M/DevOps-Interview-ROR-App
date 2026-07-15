@@ -1,0 +1,156 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: >
+  Creates an Internet-facing Application Load Balancer,
+  Target Group and HTTP Listener for ECS Fargate.
+
+############################################################
+# PARAMETERS
+############################################################
+
+Parameters:
+
+  EnvironmentName:
+    Type: String
+    Default: dev
+
+  ProjectName:
+    Type: String
+    Default: DevOps-Interview-ROR-App
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet::Id
+
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet::Id
+
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup::Id
+
+############################################################
+# RESOURCES
+############################################################
+
+Resources:
+
+############################################################
+# APPLICATION LOAD BALANCER
+############################################################
+
+  ApplicationLoadBalancer:
+
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+
+    Properties:
+
+      Name: !Sub "${EnvironmentName}-alb"
+
+      Scheme: internet-facing
+
+      Type: application
+
+      SecurityGroups:
+
+        - !Ref ALBSecurityGroup
+
+      Subnets:
+
+        - !Ref PublicSubnetA
+
+        - !Ref PublicSubnetB
+
+      Tags:
+
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-alb"
+
+        - Key: Project
+          Value: !Ref ProjectName
+
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+############################################################
+# TARGET GROUP
+############################################################
+
+  ALBTargetGroup:
+
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+
+    Properties:
+
+      Name: !Sub "${EnvironmentName}-tg"
+
+      Port: 80
+
+      Protocol: HTTP
+
+      TargetType: ip
+
+      VpcId: !Ref VpcId
+
+      HealthCheckEnabled: true
+
+      HealthCheckPath: /
+
+      HealthCheckProtocol: HTTP
+
+      Matcher:
+
+        HttpCode: "200"
+
+############################################################
+# LISTENER
+############################################################
+
+  HTTPListener:
+
+    Type: AWS::ElasticLoadBalancingV2::Listener
+
+    Properties:
+
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+
+      Port: 80
+
+      Protocol: HTTP
+
+      DefaultActions:
+
+        - Type: forward
+
+          TargetGroupArn: !Ref ALBTargetGroup
+
+############################################################
+# OUTPUTS
+############################################################
+
+Outputs:
+
+  LoadBalancerArn:
+
+    Description: ALB ARN
+
+    Value: !Ref ApplicationLoadBalancer
+
+  LoadBalancerDNS:
+
+    Description: ALB DNS Name
+
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+
+  TargetGroupArn:
+
+    Description: Target Group ARN
+
+    Value: !Ref ALBTargetGroup
+
+  ListenerArn:
+
+    Description: Listener ARN
+
+    Value: !Ref HTTPListener
