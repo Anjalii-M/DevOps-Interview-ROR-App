@@ -164,7 +164,7 @@ Resources:
 
       LogGroupName: !Sub "/ecs/${EnvironmentName}-rails-app"
 
-      RetentionInDays: 7
+      RetentionInDays: 1
 
 ############################################################
 # ECS TASK DEFINITION
@@ -383,7 +383,7 @@ Resources:
 
       HealthCheckGracePeriodSeconds: 120
 
-      ############################################################
+############################################################
 # OUTPUTS
 ############################################################
 
