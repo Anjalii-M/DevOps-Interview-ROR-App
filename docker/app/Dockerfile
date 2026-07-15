@@ -11,9 +11,8 @@ RUN bundle install --jobs 20 --retry 5
 ADD . .
 RUN bundle exec rails assets:precompile
 
-ADD docker/app/entrypoint.sh /usr/bin/
-
-RUN chmod +x /usr/bin/entrypoint.sh
-ENTRYPOINT ["entrypoint.sh"]
+COPY docker/app/entrypoint.sh /usr/bin/entrypoint.sh
+RUN chmod 755 /usr/bin/entrypoint.sh
+ENTRYPOINT ["/usr/bin/entrypoint.sh"]
 EXPOSE 3000
 CMD ["bundle", "exec", "puma", "-C", "config/puma.rb"]
