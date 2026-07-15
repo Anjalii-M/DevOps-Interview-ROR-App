@@ -94,7 +94,7 @@ Resources:
 
       Engine: postgres
 
-      EngineVersion: "13.3"
+      EngineVersion: "13.21"
 
       DBInstanceClass: !Ref DBInstanceClass
 
