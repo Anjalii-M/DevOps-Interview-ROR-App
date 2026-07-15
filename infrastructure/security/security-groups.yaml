@@ -1,0 +1,177 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: >
+  Creates Security Groups for
+  Application Load Balancer,
+  ECS Tasks and
+  PostgreSQL RDS.
+
+############################################################
+# PARAMETERS
+############################################################
+
+Parameters:
+
+  EnvironmentName:
+    Type: String
+    Default: dev
+
+  ProjectName:
+    Type: String
+    Default: DevOps-Interview-ROR-App
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+
+############################################################
+# RESOURCES
+############################################################
+
+Resources:
+
+############################################################
+# ALB SECURITY GROUP
+############################################################
+
+  ALBSecurityGroup:
+
+    Type: AWS::EC2::SecurityGroup
+
+    Properties:
+
+      GroupDescription: Allow HTTP from Internet
+
+      VpcId: !Ref VpcId
+
+      SecurityGroupIngress:
+
+        - IpProtocol: tcp
+
+          FromPort: 80
+
+          ToPort: 80
+
+          CidrIp: 0.0.0.0/0
+
+      SecurityGroupEgress:
+
+        - IpProtocol: -1
+
+          CidrIp: 0.0.0.0/0
+
+      Tags:
+
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-alb-sg"
+
+        - Key: Project
+          Value: !Ref ProjectName
+
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+############################################################
+# ECS SECURITY GROUP
+############################################################
+
+  ECSSecurityGroup:
+
+    Type: AWS::EC2::SecurityGroup
+
+    Properties:
+
+      GroupDescription: Allow traffic only from ALB
+
+      VpcId: !Ref VpcId
+
+      SecurityGroupIngress:
+
+        - IpProtocol: tcp
+
+          FromPort: 80
+
+          ToPort: 80
+
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+
+      SecurityGroupEgress:
+
+        - IpProtocol: -1
+
+          CidrIp: 0.0.0.0/0
+
+      Tags:
+
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-ecs-sg"
+
+        - Key: Project
+          Value: !Ref ProjectName
+
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+############################################################
+# RDS SECURITY GROUP
+############################################################
+
+  RDSSecurityGroup:
+
+    Type: AWS::EC2::SecurityGroup
+
+    Properties:
+
+      GroupDescription: Allow PostgreSQL only from ECS
+
+      VpcId: !Ref VpcId
+
+      SecurityGroupIngress:
+
+        - IpProtocol: tcp
+
+          FromPort: 5432
+
+          ToPort: 5432
+
+          SourceSecurityGroupId: !Ref ECSSecurityGroup
+
+      SecurityGroupEgress:
+
+        - IpProtocol: -1
+
+          CidrIp: 0.0.0.0/0
+
+      Tags:
+
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-rds-sg"
+
+        - Key: Project
+          Value: !Ref ProjectName
+
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+############################################################
+# OUTPUTS
+############################################################
+
+Outputs:
+
+  ALBSecurityGroupId:
+
+    Description: ALB Security Group ID
+
+    Value: !Ref ALBSecurityGroup
+
+  ECSSecurityGroupId:
+
+    Description: ECS Security Group ID
+
+    Value: !Ref ECSSecurityGroup
+
+  RDSSecurityGroupId:
+
+    Description: RDS Security Group ID
+
+    Value: !Ref RDSSecurityGroup
