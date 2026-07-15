@@ -167,30 +167,6 @@ Resources:
       RetentionInDays: 7
 
 ############################################################
-# OUTPUTS
-############################################################
-
-Outputs:
-
-  ECSClusterName:
-
-    Description: ECS Cluster Name
-
-    Value: !Ref ECSCluster
-
-  ECSClusterArn:
-
-    Description: ECS Cluster ARN
-
-    Value: !GetAtt ECSCluster.Arn
-
-  ECSLogGroup:
-
-    Description: CloudWatch Log Group
-
-    Value: !Ref ECSLogGroup
-
-############################################################
 # ECS TASK DEFINITION
 ############################################################
 
