@@ -1,0 +1,431 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: >
+  Creates a highly available VPC with two public subnets, two private
+  subnets, Internet Gateway, NAT Gateway and routing resources for
+  ECS Fargate, RDS and Application Load Balancer.
+
+Parameters:
+
+  EnvironmentName:
+    Type: String
+    Default: dev
+    Description: Environment Name
+
+  ProjectName:
+    Type: String
+    Default: DevOps-Interview-ROR-App
+    Description: Project Name
+
+  VPCCidr:
+    Type: String
+    Default: 10.0.0.0/22
+
+  PublicSubnet1CIDR:
+    Type: String
+    Default: 10.0.1.0/24
+
+  PublicSubnet2CIDR:
+    Type: String
+    Default: 10.0.2.0/24
+
+  PrivateSubnet1CIDR:
+    Type: String
+    Default: 10.0.11.0/24
+
+  PrivateSubnet2CIDR:
+    Type: String
+    Default: 10.0.12.0/24
+
+Resources:
+
+############################################################
+# VPC
+############################################################
+
+  VPC:
+    Type: AWS::EC2::VPC
+
+    Properties:
+
+      CidrBlock: !Ref VPCCidr
+
+      EnableDnsSupport: true
+
+      EnableDnsHostnames: true
+
+      Tags:
+
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-vpc"
+
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+        - Key: Project
+          Value: !Ref ProjectName
+
+############################################################
+# INTERNET GATEWAY
+############################################################
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+    Properties:
+
+      Tags:
+
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-igw"
+
+        - Key: Project
+          Value: !Ref ProjectName
+
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  AttachGateway:
+
+    Type: AWS::EC2::VPCGatewayAttachment
+
+    Properties:
+
+      VpcId: !Ref VPC
+
+      InternetGatewayId: !Ref InternetGateway
+
+############################################################
+# PUBLIC SUBNET A
+############################################################
+
+  PublicSubnetA:
+
+    Type: AWS::EC2::Subnet
+
+    Properties:
+
+      VpcId: !Ref VPC
+
+      AvailabilityZone: !Select [0, !GetAZs ""]
+
+      CidrBlock: !Ref PublicSubnet1CIDR
+
+      MapPublicIpOnLaunch: true
+
+      Tags:
+
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-public-subnet-a"
+
+        - Key: Project
+          Value: !Ref ProjectName
+
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+############################################################
+# PUBLIC SUBNET B
+############################################################
+
+  PublicSubnetB:
+
+    Type: AWS::EC2::Subnet
+
+    Properties:
+
+      VpcId: !Ref VPC
+
+      AvailabilityZone: !Select [1, !GetAZs ""]
+
+      CidrBlock: !Ref PublicSubnet2CIDR
+
+      MapPublicIpOnLaunch: true
+
+      Tags:
+
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-public-subnet-b"
+
+        - Key: Project
+          Value: !Ref ProjectName
+
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+############################################################
+# PRIVATE SUBNET A
+############################################################
+
+  PrivateSubnetA:
+
+    Type: AWS::EC2::Subnet
+
+    Properties:
+
+      VpcId: !Ref VPC
+
+      AvailabilityZone: !Select [0, !GetAZs ""]
+
+      CidrBlock: !Ref PrivateSubnet1CIDR
+
+      MapPublicIpOnLaunch: false
+
+      Tags:
+
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-private-subnet-a"
+
+        - Key: Project
+          Value: !Ref ProjectName
+
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+############################################################
+# PRIVATE SUBNET B
+############################################################
+
+  PrivateSubnetB:
+
+    Type: AWS::EC2::Subnet
+
+    Properties:
+
+      VpcId: !Ref VPC
+
+      AvailabilityZone: !Select [1, !GetAZs ""]
+
+      CidrBlock: !Ref PrivateSubnet2CIDR
+
+      MapPublicIpOnLaunch: false
+
+      Tags:
+
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-private-subnet-b"
+
+        - Key: Project
+          Value: !Ref ProjectName
+
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+############################################################
+# ELASTIC IP
+############################################################
+
+  NatEIP:
+
+    Type: AWS::EC2::EIP
+
+    DependsOn: AttachGateway
+
+    Properties:
+
+      Domain: vpc
+############################################################
+# NAT GATEWAY
+############################################################
+
+  NatGateway:
+
+    Type: AWS::EC2::NatGateway
+
+    DependsOn:
+      - AttachGateway
+
+    Properties:
+
+      AllocationId: !GetAtt NatEIP.AllocationId
+
+      SubnetId: !Ref PublicSubnetA
+
+      Tags:
+
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-nat-gateway"
+
+        - Key: Project
+          Value: !Ref ProjectName
+
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+############################################################
+# PUBLIC ROUTE TABLE
+############################################################
+
+  PublicRouteTable:
+
+    Type: AWS::EC2::RouteTable
+
+    Properties:
+
+      VpcId: !Ref VPC
+
+      Tags:
+
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-public-route-table"
+
+        - Key: Project
+          Value: !Ref ProjectName
+
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+############################################################
+# PRIVATE ROUTE TABLE
+############################################################
+
+  PrivateRouteTable:
+
+    Type: AWS::EC2::RouteTable
+
+    Properties:
+
+      VpcId: !Ref VPC
+
+      Tags:
+
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-private-route-table"
+
+        - Key: Project
+          Value: !Ref ProjectName
+
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+############################################################
+# PUBLIC INTERNET ROUTE
+############################################################
+
+  PublicInternetRoute:
+
+    Type: AWS::EC2::Route
+
+    DependsOn:
+      - AttachGateway
+
+    Properties:
+
+      RouteTableId: !Ref PublicRouteTable
+
+      DestinationCidrBlock: 0.0.0.0/0
+
+      GatewayId: !Ref InternetGateway
+
+############################################################
+# PRIVATE NAT ROUTE
+############################################################
+
+  PrivateNatRoute:
+
+    Type: AWS::EC2::Route
+
+    Properties:
+
+      RouteTableId: !Ref PrivateRouteTable
+
+      DestinationCidrBlock: 0.0.0.0/0
+
+      NatGatewayId: !Ref NatGateway
+
+############################################################
+# PUBLIC SUBNET A ASSOCIATION
+############################################################
+
+  PublicSubnetAAssociation:
+
+    Type: AWS::EC2::SubnetRouteTableAssociation
+
+    Properties:
+
+      RouteTableId: !Ref PublicRouteTable
+
+      SubnetId: !Ref PublicSubnetA
+
+############################################################
+# PUBLIC SUBNET B ASSOCIATION
+############################################################
+
+  PublicSubnetBAssociation:
+
+    Type: AWS::EC2::SubnetRouteTableAssociation
+
+    Properties:
+
+      RouteTableId: !Ref PublicRouteTable
+
+      SubnetId: !Ref PublicSubnetB
+
+############################################################
+# PRIVATE SUBNET A ASSOCIATION
+############################################################
+
+  PrivateSubnetAAssociation:
+
+    Type: AWS::EC2::SubnetRouteTableAssociation
+
+    Properties:
+
+      RouteTableId: !Ref PrivateRouteTable
+
+      SubnetId: !Ref PrivateSubnetA
+
+############################################################
+# PRIVATE SUBNET B ASSOCIATION
+############################################################
+
+  PrivateSubnetBAssociation:
+
+    Type: AWS::EC2::SubnetRouteTableAssociation
+
+    Properties:
+
+      RouteTableId: !Ref PrivateRouteTable
+
+      SubnetId: !Ref PrivateSubnetB
+############################################################
+# OUTPUTS
+############################################################
+
+Outputs:
+
+  VpcId:
+    Description: VPC ID
+    Value: !Ref VPC
+
+  PublicSubnetAId:
+    Description: Public Subnet A ID
+    Value: !Ref PublicSubnetA
+
+  PublicSubnetBId:
+    Description: Public Subnet B ID
+    Value: !Ref PublicSubnetB
+
+  PrivateSubnetAId:
+    Description: Private Subnet A ID
+    Value: !Ref PrivateSubnetA
+
+  PrivateSubnetBId:
+    Description: Private Subnet B ID
+    Value: !Ref PrivateSubnetB
+
+  InternetGatewayId:
+    Description: Internet Gateway ID
+    Value: !Ref InternetGateway
+
+  NatGatewayId:
+    Description: NAT Gateway ID
+    Value: !Ref NatGateway
+
+  PublicRouteTableId:
+    Description: Public Route Table ID
+    Value: !Ref PublicRouteTable
+
+  PrivateRouteTableId:
+    Description: Private Route Table ID
+    Value: !Ref PrivateRouteTable
