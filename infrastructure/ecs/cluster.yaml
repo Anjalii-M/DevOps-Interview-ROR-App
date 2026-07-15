@@ -1,0 +1,459 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: >
+  Creates ECS Fargate Cluster,
+  CloudWatch Log Group,
+  Task Definition,
+  ECS Service
+  for Rails + Nginx application.
+
+############################################################
+# PARAMETERS
+############################################################
+
+Parameters:
+
+  EnvironmentName:
+    Type: String
+    Default: dev
+
+  ProjectName:
+    Type: String
+    Default: DevOps-Interview-ROR-App
+
+############################################################
+# NETWORK
+############################################################
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet::Id
+
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet::Id
+
+############################################################
+# SECURITY GROUPS
+############################################################
+
+  ECSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup::Id
+
+############################################################
+# LOAD BALANCER
+############################################################
+
+  TargetGroupArn:
+    Type: String
+
+############################################################
+# IAM
+############################################################
+
+  ExecutionRoleArn:
+    Type: String
+
+  TaskRoleArn:
+    Type: String
+
+############################################################
+# ECR IMAGES
+############################################################
+
+  RailsImage:
+    Type: String
+    Description: Rails ECR Image URI
+
+  NginxImage:
+    Type: String
+    Description: Nginx ECR Image URI
+
+############################################################
+# DATABASE
+############################################################
+
+  RDSDBName:
+    Type: String
+
+  RDSUsername:
+    Type: String
+
+  RDSPassword:
+    Type: String
+    NoEcho: true
+
+  RDSHostname:
+    Type: String
+
+  RDSPort:
+    Type: String
+    Default: "5432"
+
+############################################################
+# S3
+############################################################
+
+  S3BucketName:
+    Type: String
+
+  S3Region:
+    Type: String
+    Default: ap-south-1
+
+############################################################
+# LOAD BALANCER ENDPOINT
+############################################################
+
+  LBEndpoint:
+    Type: String
+
+############################################################
+# ECS
+############################################################
+
+  DesiredCount:
+    Type: Number
+    Default: 1
+
+############################################################
+# RESOURCES
+############################################################
+
+Resources:
+
+############################################################
+# ECS CLUSTER
+############################################################
+
+  ECSCluster:
+
+    Type: AWS::ECS::Cluster
+
+    Properties:
+
+      ClusterName: !Sub "${EnvironmentName}-ecs-cluster"
+
+      ClusterSettings:
+
+        - Name: containerInsights
+
+          Value: enabled
+
+      Tags:
+
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-ecs-cluster"
+
+        - Key: Project
+          Value: !Ref ProjectName
+
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+############################################################
+# CLOUDWATCH LOG GROUP
+############################################################
+
+  ECSLogGroup:
+
+    Type: AWS::Logs::LogGroup
+
+    Properties:
+
+      LogGroupName: !Sub "/ecs/${EnvironmentName}-rails-app"
+
+      RetentionInDays: 7
+
+############################################################
+# OUTPUTS
+############################################################
+
+Outputs:
+
+  ECSClusterName:
+
+    Description: ECS Cluster Name
+
+    Value: !Ref ECSCluster
+
+  ECSClusterArn:
+
+    Description: ECS Cluster ARN
+
+    Value: !GetAtt ECSCluster.Arn
+
+  ECSLogGroup:
+
+    Description: CloudWatch Log Group
+
+    Value: !Ref ECSLogGroup
+
+############################################################
+# ECS TASK DEFINITION
+############################################################
+
+  ECSTaskDefinition:
+
+    Type: AWS::ECS::TaskDefinition
+
+    Properties:
+
+      Family: !Sub "${EnvironmentName}-rails-app"
+
+      Cpu: "512"
+
+      Memory: "1024"
+
+      NetworkMode: awsvpc
+
+      RequiresCompatibilities:
+
+        - FARGATE
+
+      ExecutionRoleArn: !Ref ExecutionRoleArn
+
+      TaskRoleArn: !Ref TaskRoleArn
+
+############################################################
+# CONTAINERS
+############################################################
+
+      ContainerDefinitions:
+
+############################################################
+# RAILS CONTAINER
+############################################################
+
+        - Name: rails_app
+
+          Image: !Ref RailsImage
+
+          Essential: true
+
+          PortMappings:
+
+            - ContainerPort: 3000
+              Protocol: tcp
+
+          Environment:
+
+            - Name: RDS_DB_NAME
+              Value: !Ref RDSDBName
+
+            - Name: RDS_USERNAME
+              Value: !Ref RDSUsername
+
+            - Name: RDS_PASSWORD
+              Value: !Ref RDSPassword
+
+            - Name: RDS_HOSTNAME
+              Value: !Ref RDSHostname
+
+            - Name: RDS_PORT
+              Value: !Ref RDSPort
+
+            - Name: S3_BUCKET_NAME
+              Value: !Ref S3BucketName
+
+            - Name: S3_REGION_NAME
+              Value: !Ref S3Region
+
+            - Name: LB_ENDPOINT
+              Value: !Ref LBEndpoint
+
+          LogConfiguration:
+
+            LogDriver: awslogs
+
+            Options:
+
+              awslogs-group: !Ref ECSLogGroup
+
+              awslogs-region: !Ref AWS::Region
+
+              awslogs-stream-prefix: rails
+
+############################################################
+# NGINX CONTAINER
+############################################################
+
+        - Name: nginx
+
+          Image: !Ref NginxImage
+
+          Essential: true
+
+          DependsOn:
+
+            - ContainerName: rails_app
+              Condition: START
+
+          PortMappings:
+
+            - ContainerPort: 80
+              Protocol: tcp
+
+          LogConfiguration:
+
+            LogDriver: awslogs
+
+            Options:
+
+              awslogs-group: !Ref ECSLogGroup
+
+              awslogs-region: !Ref AWS::Region
+
+              awslogs-stream-prefix: nginx
+
+############################################################
+# ECS SERVICE
+############################################################
+
+  ECSService:
+
+    Type: AWS::ECS::Service
+
+    DependsOn:
+
+      - ECSTaskDefinition
+
+    Properties:
+
+      ServiceName: !Sub "${EnvironmentName}-rails-service"
+
+      Cluster: !Ref ECSCluster
+
+      LaunchType: FARGATE
+
+      DesiredCount: !Ref DesiredCount
+
+      EnableExecuteCommand: true
+
+      TaskDefinition: !Ref ECSTaskDefinition
+
+############################################################
+# DEPLOYMENT CONFIGURATION
+############################################################
+
+      DeploymentConfiguration:
+
+        MaximumPercent: 200
+
+        MinimumHealthyPercent: 100
+
+############################################################
+# NETWORK CONFIGURATION
+############################################################
+
+      NetworkConfiguration:
+
+        AwsvpcConfiguration:
+
+          AssignPublicIp: DISABLED
+
+          SecurityGroups:
+
+            - !Ref ECSSecurityGroup
+
+          Subnets:
+
+            - !Ref PrivateSubnetA
+
+            - !Ref PrivateSubnetB
+
+############################################################
+# LOAD BALANCER
+############################################################
+
+      LoadBalancers:
+
+        - TargetGroupArn: !Ref TargetGroupArn
+
+          ContainerName: nginx
+
+          ContainerPort: 80
+
+############################################################
+# ECS SERVICE TAGS
+############################################################
+
+      Tags:
+
+        - Key: Name
+
+          Value: !Sub "${EnvironmentName}-ecs-service"
+
+        - Key: Environment
+
+          Value: !Ref EnvironmentName
+
+        - Key: Project
+
+          Value: !Ref ProjectName
+
+############################################################
+# SERVICE DISCOVERY
+############################################################
+
+      PropagateTags: SERVICE
+
+      EnableECSManagedTags: true
+
+      SchedulingStrategy: REPLICA
+
+      PlatformVersion: LATEST
+
+      HealthCheckGracePeriodSeconds: 120
+
+############################################################
+# OUTPUTS
+############################################################
+
+Outputs:
+
+  ECSClusterName:
+
+    Description: ECS Cluster Name
+
+    Value: !Ref ECSCluster
+
+    Export:
+      Name: !Sub "${AWS::StackName}-ClusterName"
+
+  ECSClusterArn:
+
+    Description: ECS Cluster ARN
+
+    Value: !GetAtt ECSCluster.Arn
+
+    Export:
+      Name: !Sub "${AWS::StackName}-ClusterArn"
+
+  ECSServiceName:
+
+    Description: ECS Service Name
+
+    Value: !Ref ECSService
+
+    Export:
+      Name: !Sub "${AWS::StackName}-ServiceName"
+
+  TaskDefinitionArn:
+
+    Description: ECS Task Definition ARN
+
+    Value: !Ref ECSTaskDefinition
+
+    Export:
+      Name: !Sub "${AWS::StackName}-TaskDefinitionArn"
+
+  ECSLogGroup:
+
+    Description: CloudWatch Log Group
+
+    Value: !Ref ECSLogGroup
+
+    Export:
+      Name: !Sub "${AWS::StackName}-LogGroup"
