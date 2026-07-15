@@ -1,0 +1,218 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: >
+  Master CloudFormation Template
+  Deploys complete Rails application infrastructure using nested stacks.
+
+############################################################
+# PARAMETERS
+############################################################
+
+Parameters:
+
+  EnvironmentName:
+    Type: String
+    Default: dev
+    Description: Environment Name
+
+  ProjectName:
+    Type: String
+    Default: DevOps-Interview-ROR-App
+    Description: Project Name
+
+  TemplateBucket:
+    Type: String
+    Description: S3 Bucket containing nested CloudFormation templates
+
+  RailsImageURI:
+    Type: String
+    Description: Rails ECR Image URI
+
+  NginxImageURI:
+    Type: String
+    Description: Nginx ECR Image URI
+
+  DBUsername:
+    Type: String
+    Default: postgres
+
+  DBPassword:
+    Type: String
+    NoEcho: true
+
+############################################################
+# METADATA
+############################################################
+
+Metadata:
+
+  AWS::CloudFormation::Interface:
+
+    ParameterGroups:
+
+      - Label:
+          default: Project Configuration
+        Parameters:
+          - ProjectName
+          - EnvironmentName
+
+      - Label:
+          default: CloudFormation Templates
+        Parameters:
+          - TemplateBucket
+
+      - Label:
+          default: Container Images
+        Parameters:
+          - RailsImageURI
+          - NginxImageURI
+
+      - Label:
+          default: Database
+        Parameters:
+          - DBUsername
+          - DBPassword
+
+############################################################
+# RESOURCES
+############################################################
+
+Resources:
+
+############################################################
+# VPC STACK
+############################################################
+
+  NetworkStack:
+
+    Type: AWS::CloudFormation::Stack
+
+    Properties:
+
+      TemplateURL: !Sub
+        - https://${Bucket}.s3.${AWS::Region}.amazonaws.com/network/vpc.yaml
+        - Bucket: !Ref TemplateBucket
+
+      TimeoutInMinutes: 20
+
+      Parameters:
+
+        EnvironmentName: !Ref EnvironmentName
+
+        ProjectName: !Ref ProjectName
+
+############################################################
+# SECURITY GROUP STACK
+############################################################
+
+  SecurityStack:
+
+    Type: AWS::CloudFormation::Stack
+
+    DependsOn:
+
+      - NetworkStack
+
+    Properties:
+
+      TemplateURL: !Sub
+        - https://${Bucket}.s3.${AWS::Region}.amazonaws.com/security/security-groups.yaml
+        - Bucket: !Ref TemplateBucket
+
+      TimeoutInMinutes: 20
+
+      Parameters:
+
+        EnvironmentName: !Ref EnvironmentName
+
+        ProjectName: !Ref ProjectName
+
+        VpcId: !GetAtt NetworkStack.Outputs.VpcId
+
+############################################################
+# S3 STACK
+############################################################
+
+  StorageStack:
+
+    Type: AWS::CloudFormation::Stack
+
+    Properties:
+
+      TemplateURL: !Sub
+        - https://${Bucket}.s3.${AWS::Region}.amazonaws.com/storage/s3.yaml
+        - Bucket: !Ref TemplateBucket
+
+      TimeoutInMinutes: 20
+
+      Parameters:
+
+        EnvironmentName: !Ref EnvironmentName
+
+        ProjectName: !Ref ProjectName
+############################################################
+# IAM STACK
+############################################################
+
+  IAMStack:
+
+    Type: AWS::CloudFormation::Stack
+
+    DependsOn:
+
+      - StorageStack
+
+    Properties:
+
+      TemplateURL: !Sub
+        - https://${Bucket}.s3.${AWS::Region}.amazonaws.com/iam/iam.yaml
+        - Bucket: !Ref TemplateBucket
+
+      TimeoutInMinutes: 20
+
+      Parameters:
+
+        EnvironmentName: !Ref EnvironmentName
+
+        ProjectName: !Ref ProjectName
+
+        S3BucketName: !GetAtt StorageStack.Outputs.S3BucketName
+
+############################################################
+# RDS STACK
+############################################################
+
+  DatabaseStack:
+
+    Type: AWS::CloudFormation::Stack
+
+    DependsOn:
+
+      - NetworkStack
+      - SecurityStack
+
+    Properties:
+
+      TemplateURL: !Sub
+        - https://${Bucket}.s3.${AWS::Region}.amazonaws.com/database/rds.yaml
+        - Bucket: !Ref TemplateBucket
+
+      TimeoutInMinutes: 30
+
+      Parameters:
+
+        EnvironmentName: !Ref EnvironmentName
+
+        ProjectName: !Ref ProjectName
+
+        VpcId: !GetAtt NetworkStack.Outputs.VpcId
+
+        PrivateSubnet1: !GetAtt NetworkStack.Outputs.PrivateSubnet1
+
+        PrivateSubnet2: !GetAtt NetworkStack.Outputs.PrivateSubnet2
+
+        RDSSecurityGroup: !GetAtt SecurityStack.Outputs.RDSSecurityGroup
+
+        DBUsername: !Ref DBUsername
+
+        DBPassword: !Ref DBPassword
