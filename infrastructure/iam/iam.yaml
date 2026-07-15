@@ -1,0 +1,165 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: >
+  Creates IAM Roles for ECS Fargate Tasks.
+  - ECS Task Execution Role
+  - ECS Task Role with S3 access
+
+############################################################
+# PARAMETERS
+############################################################
+
+Parameters:
+
+  EnvironmentName:
+    Type: String
+    Default: dev
+
+  ProjectName:
+    Type: String
+    Default: DevOps-Interview-ROR-App
+
+  S3BucketName:
+    Type: String
+
+############################################################
+# RESOURCES
+############################################################
+
+Resources:
+
+############################################################
+# ECS TASK EXECUTION ROLE
+############################################################
+
+  ECSTaskExecutionRole:
+
+    Type: AWS::IAM::Role
+
+    Properties:
+
+      RoleName: !Sub "${EnvironmentName}-ecs-task-execution-role"
+
+      AssumeRolePolicyDocument:
+
+        Version: "2012-10-17"
+
+        Statement:
+
+          - Effect: Allow
+
+            Principal:
+
+              Service:
+
+                - ecs-tasks.amazonaws.com
+
+            Action:
+
+              - sts:AssumeRole
+
+      ManagedPolicyArns:
+
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+      Tags:
+
+        - Key: Project
+          Value: !Ref ProjectName
+
+############################################################
+# ECS TASK ROLE
+############################################################
+
+  ECSTaskRole:
+
+    Type: AWS::IAM::Role
+
+    Properties:
+
+      RoleName: !Sub "${EnvironmentName}-ecs-task-role"
+
+      AssumeRolePolicyDocument:
+
+        Version: "2012-10-17"
+
+        Statement:
+
+          - Effect: Allow
+
+            Principal:
+
+              Service:
+
+                - ecs-tasks.amazonaws.com
+
+            Action:
+
+              - sts:AssumeRole
+
+      Tags:
+
+        - Key: Project
+          Value: !Ref ProjectName
+
+############################################################
+# S3 ACCESS POLICY
+############################################################
+
+  S3AccessPolicy:
+
+    Type: AWS::IAM::Policy
+
+    Properties:
+
+      PolicyName: !Sub "${EnvironmentName}-s3-access"
+
+      Roles:
+
+        - !Ref ECSTaskRole
+
+      PolicyDocument:
+
+        Version: "2012-10-17"
+
+        Statement:
+
+          - Effect: Allow
+
+            Action:
+
+              - s3:GetObject
+              - s3:PutObject
+              - s3:DeleteObject
+
+            Resource:
+
+              - !Sub "arn:aws:s3:::${S3BucketName}/*"
+
+          - Effect: Allow
+
+            Action:
+
+              - s3:ListBucket
+
+            Resource:
+
+              - !Sub "arn:aws:s3:::${S3BucketName}"
+
+############################################################
+# OUTPUTS
+############################################################
+
+Outputs:
+
+  ECSTaskExecutionRoleArn:
+
+    Description: ECS Task Execution Role ARN
+
+    Value: !GetAtt ECSTaskExecutionRole.Arn
+
+  ECSTaskRoleArn:
+
+    Description: ECS Task Role ARN
+
+    Value: !GetAtt ECSTaskRole.Arn
