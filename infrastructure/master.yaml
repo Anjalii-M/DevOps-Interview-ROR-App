@@ -22,7 +22,6 @@ Parameters:
 
   BucketName:
     Type: String
-    Default: cf-template-mallow
     Description: S3 Bucket containing nested CloudFormation templates
 
   TemplateBucket:
