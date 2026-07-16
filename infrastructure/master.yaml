@@ -22,7 +22,7 @@ Parameters:
 
   BucketName:
     Type: String
-    Description: S3 Bucket containing nested CloudFormation templates
+    Description: S3 Bucket used for app
 
   TemplateBucket:
     Type: String
@@ -209,7 +209,7 @@ Resources:
 
         ProjectName: !Ref ProjectName
 
-        VpcId: !GetAtt NetworkStack.Outputs.VpcId
+        #VpcId: !GetAtt NetworkStack.Outputs.VpcId
 
         PrivateSubnetA: !GetAtt NetworkStack.Outputs.PrivateSubnetAId
 
