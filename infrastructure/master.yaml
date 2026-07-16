@@ -151,7 +151,7 @@ Resources:
 
         ProjectName: !Ref ProjectName
 ############################################################
-# IAM STACK
+# IAM NESTED STACK
 ############################################################
 
   IAMStack:
@@ -159,7 +159,6 @@ Resources:
     Type: AWS::CloudFormation::Stack
 
     DependsOn:
-
       - StorageStack
 
     Properties:
@@ -176,10 +175,10 @@ Resources:
 
         ProjectName: !Ref ProjectName
 
-        S3BucketName: !GetAtt StorageStack.Outputs.S3BucketName
+        S3BucketName: !GetAtt StorageStack.Outputs.BucketName
 
 ############################################################
-# RDS STACK
+# DATABASE (RDS) NESTED STACK
 ############################################################
 
   DatabaseStack:
@@ -187,7 +186,6 @@ Resources:
     Type: AWS::CloudFormation::Stack
 
     DependsOn:
-
       - NetworkStack
       - SecurityStack
 
@@ -207,12 +205,154 @@ Resources:
 
         VpcId: !GetAtt NetworkStack.Outputs.VpcId
 
-        PrivateSubnet1: !GetAtt NetworkStack.Outputs.PrivateSubnet1
+        PrivateSubnetA: !GetAtt NetworkStack.Outputs.PrivateSubnetAId
 
-        PrivateSubnet2: !GetAtt NetworkStack.Outputs.PrivateSubnet2
+        PrivateSubnetB: !GetAtt NetworkStack.Outputs.PrivateSubnetBId
 
-        RDSSecurityGroup: !GetAtt SecurityStack.Outputs.RDSSecurityGroup
+        RDSSecurityGroup: !GetAtt SecurityStack.Outputs.RDSSecurityGroupId
 
         DBUsername: !Ref DBUsername
 
         DBPassword: !Ref DBPassword
+
+  ############################################################
+# LOAD BALANCER STACK
+############################################################
+
+  LoadBalancerStack:
+
+    Type: AWS::CloudFormation::Stack
+
+    DependsOn:
+
+      - NetworkStack
+      - SecurityStack
+
+    Properties:
+
+      TemplateURL: !Sub
+        - https://${Bucket}.s3.${AWS::Region}.amazonaws.com/loadbalancer/alb.yaml
+        - Bucket: !Ref TemplateBucket
+
+      TimeoutInMinutes: 20
+
+      Parameters:
+
+        EnvironmentName: !Ref EnvironmentName
+
+        ProjectName: !Ref ProjectName
+
+        VpcId: !GetAtt NetworkStack.Outputs.VpcId
+
+        PublicSubnetA: !GetAtt NetworkStack.Outputs.PublicSubnetAId
+
+        PublicSubnetB: !GetAtt NetworkStack.Outputs.PublicSubnetBId
+
+        ALBSecurityGroup: !GetAtt SecurityStack.Outputs.ALBSecurityGroupId  
+  ############################################################
+# ECS STACK
+############################################################
+
+  ECSStack:
+
+    Type: AWS::CloudFormation::Stack
+
+    DependsOn:
+
+      - IAMStack
+      - DatabaseStack
+      - LoadBalancerStack
+
+    Properties:
+
+      TemplateURL: !Sub
+        - https://${Bucket}.s3.${AWS::Region}.amazonaws.com/ecs/cluster.yaml
+        - Bucket: !Ref TemplateBucket
+
+      TimeoutInMinutes: 30
+
+      Parameters:
+
+        EnvironmentName: !Ref EnvironmentName
+
+        ProjectName: !Ref ProjectName
+
+        VpcId: !GetAtt NetworkStack.Outputs.VpcId
+
+        PrivateSubnetA: !GetAtt NetworkStack.Outputs.PrivateSubnetAId
+
+        PrivateSubnetB: !GetAtt NetworkStack.Outputs.PrivateSubnetBId
+
+        ECSSecurityGroup: !GetAtt SecurityStack.Outputs.ECSSecurityGroupId
+
+        ExecutionRoleArn: !GetAtt IAMStack.Outputs.ECSTaskExecutionRoleArn
+
+        TaskRoleArn: !GetAtt IAMStack.Outputs.ECSTaskRoleArn
+
+        TargetGroupArn: !GetAtt LoadBalancerStack.Outputs.TargetGroupArn
+
+        LBEndpoint: !GetAtt LoadBalancerStack.Outputs.LoadBalancerDNS
+
+        RDSHostname: !GetAtt DatabaseStack.Outputs.DBEndpoint
+
+        RDSPort: !GetAtt DatabaseStack.Outputs.DBPort
+
+        RDSDBName: !GetAtt DatabaseStack.Outputs.DBName
+
+        RDSUsername: !Ref DBUsername
+
+        RDSPassword: !Ref DBPassword
+
+        S3BucketName: !GetAtt StorageStack.Outputs.BucketName
+
+        RailsImage: !Ref RailsImageURI
+
+        NginxImage: !Ref NginxImageURI    
+
+############################################################
+# OUTPUTS
+############################################################
+
+Outputs:
+
+  VpcId:
+
+    Description: VPC ID
+
+    Value: !GetAtt NetworkStack.Outputs.VpcId
+
+  ALBDNSName:
+
+    Description: Application Load Balancer DNS
+
+    Value: !GetAtt LoadBalancerStack.Outputs.LoadBalancerDNS
+
+  S3BucketName:
+
+    Description: Application S3 Bucket
+
+    Value: !GetAtt StorageStack.Outputs.BucketName
+
+  DatabaseEndpoint:
+
+    Description: PostgreSQL Endpoint
+
+    Value: !GetAtt DatabaseStack.Outputs.DBEndpoint
+
+  DatabaseName:
+
+    Description: PostgreSQL Database Name
+
+    Value: !GetAtt DatabaseStack.Outputs.DBName
+
+  ECSExecutionRole:
+
+    Description: ECS Task Execution Role
+
+    Value: !GetAtt IAMStack.Outputs.ECSTaskExecutionRoleArn
+
+  ECSTaskRole:
+
+    Description: ECS Task Role
+
+    Value: !GetAtt IAMStack.Outputs.ECSTaskRoleArn
